@@ -5,6 +5,7 @@ import Link from "next/link";
 import Logo from "@/components/icons/Logo";
 import { Coins } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useState, useEffect } from "react";
 
 interface NavbarProps {
   active?: string;
@@ -21,6 +22,8 @@ export default function Navbar({
 }: NavbarProps) {
   const router = useRouter();
   const { authed, user, logout } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   const marketingLinks = [
     { id: "beranda", label: "Beranda", href: "/" },
@@ -109,7 +112,7 @@ export default function Navbar({
                 {l.label}
               </Link>
             ))
-          : authed
+          : (mounted && authed)
           ? authedLinks.map((l) => (
               <Link
                 key={l.id}
@@ -150,7 +153,7 @@ export default function Navbar({
               Online
             </span>
           </>
-        ) : authed ? (
+        ) : (mounted && authed) ? (
           <>
             <span className="pill" style={{ gap: 5 }}>
               <Coins size={13} />

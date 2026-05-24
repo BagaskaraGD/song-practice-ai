@@ -2,7 +2,8 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { v4 } from 'uuid';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
-import { PKG_CREDITS, DEFAULT_ANALYSIS_DATA } from '../common/constants';
+import { AnalysisQueueService } from '../analysis-queue/analysis-queue.service';
+import { PKG_CREDITS } from '../common/constants';
 import { InitUploadDto } from './upload.dto';
 
 function sanitizeFilename(raw: string): string {
@@ -17,6 +18,7 @@ export class UploadService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly analysisQueue: AnalysisQueueService,
   ) {}
 
   async init(dto: InitUploadDto, userId: string) {
@@ -111,15 +113,9 @@ export class UploadService {
       return { song, job };
     });
 
+    await this.analysisQueue.enqueue({ jobId: job.id, songId: song.id, userId });
+
     return { jobId: job.id, uploadId, status: 'queued', message: 'Analisis dijadwalkan.' };
   }
 
-  async ensureAnalysis(jobId: string, songId: string) {
-    const existing = await this.prisma.db.analysis.findUnique({ where: { jobId } });
-    if (!existing) {
-      await this.prisma.db.analysis.create({
-        data: { id: v4(), jobId, songId, ...DEFAULT_ANALYSIS_DATA },
-      });
-    }
-  }
 }

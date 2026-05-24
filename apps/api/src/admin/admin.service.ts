@@ -1,9 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { AnalysisQueueService } from '../analysis-queue/analysis-queue.service';
 
 @Injectable()
 export class AdminService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly analysisQueue: AnalysisQueueService,
+  ) {}
 
   async stats(range: string) {
     const rangeHours: Record<string, number> = { '1d': 24, '7d': 168, '30d': 720, '90d': 2160 };
@@ -122,19 +126,20 @@ export class AdminService {
       where: { OR: [{ id: jobId }, { id: { startsWith: jobId.toLowerCase() } }] },
     });
 
-    if (job) {
-      const newJob = await this.prisma.db.job.create({
-        data: {
-          userId: job.userId,
-          songId: job.songId,
-          pkg: job.pkg,
-          status: 'queued',
-          credits: job.credits,
-        },
-      });
-      return { jobId, action: 'retry_queued', newJobId: newJob.id };
-    }
+    if (!job) throw new BadRequestException('Job not found');
+    if (job.status !== 'failed') throw new BadRequestException('Only failed jobs can be retried');
 
-    return { jobId, action: 'retry_queued', newJobId: `retry-${jobId}` };
+    await this.prisma.db.job.update({
+      where: { id: job.id },
+      data: { status: 'queued', errorMsg: null },
+    });
+
+    await this.analysisQueue.enqueue({
+      jobId: job.id,
+      songId: job.songId,
+      userId: job.userId,
+    });
+
+    return { jobId: job.id, action: 'retry_queued', newJobId: job.id };
   }
 }
