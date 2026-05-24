@@ -207,6 +207,27 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// PUT file directly to presigned S3 URL with progress callback
+export async function putToStorage(
+  presignedUrl: string,
+  file: File,
+  onProgress?: (pct: number) => void,
+): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", presignedUrl);
+    xhr.setRequestHeader("Content-Type", file.type);
+    if (onProgress) {
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+    }
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Storage upload failed: ${xhr.status}`)));
+    xhr.onerror = () => reject(new Error("Storage upload network error"));
+    xhr.send(file);
+  });
+}
+
 // ─── API functions ────────────────────────────────────────────────────────────
 
 export const api = {
@@ -234,7 +255,13 @@ export const api = {
   getSong: (id: string) => apiFetch<ApiSong>(`/songs/${id}`),
 
   // Upload
-  initUpload: (payload: { filename: string; mimeType: string; pkg: string }) =>
+  initUpload: (payload: {
+    filename: string;
+    contentType: string;
+    fileSize: number;
+    durationSeconds?: number;
+    pkg: string;
+  }) =>
     apiFetch<ApiUploadInit>("/upload/init", {
       method: "POST",
       body: JSON.stringify(payload),
