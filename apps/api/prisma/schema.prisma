@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum JobStatus {
+  queued
+  running
+  done
+  failed
+}
+
+enum TransactionType {
+  purchase
+  deduct
+  refund
+  promo
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  initials     String   @db.VarChar(3)
+  passwordHash String
+  role         String   @default("user")
+  plan         String   @default("free")
+  credits      Int      @default(0)
+  totalCredits Int      @default(0)
+  resetDay     Int      @default(1)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  songs              Song[]
+  jobs               Job[]
+  creditTransactions CreditTransaction[]
+
+  @@map("users")
+}
+
+model Song {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  artist    String
+  filename  String
+  mimeType  String
+  sizeBytes Int
+  duration  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user     User       @relation(fields: [userId], references: [id])
+  jobs     Job[]
+  analyses Analysis[]
+
+  @@map("songs")
+}
+
+model Job {
+  id        String    @id @default(uuid())
+  userId    String
+  songId    String
+  pkg       String
+  status    JobStatus @default(queued)
+  credits   Int
+  latencyMs Int?
+  errorMsg  String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id])
+  song     Song      @relation(fields: [songId], references: [id])
+  analysis Analysis?
+
+  @@map("jobs")
+}
+
+model Analysis {
+  id            String   @id @default(uuid())
+  jobId         String   @unique
+  songId        String
+  key           String
+  easyKey       String?
+  bpm           Int
+  capo          Int?
+  timeSignature String   @default("4/4")
+  structure     Json
+  chords        Json
+  notAngka      Json
+  practiceTips  Json
+  easyChords    Json
+  createdAt     DateTime @default(now())
+
+  job  Job  @relation(fields: [jobId], references: [id])
+  song Song @relation(fields: [songId], references: [id])
+
+  @@map("analyses")
+}
+
+model CreditTransaction {
+  id          String          @id @default(uuid())
+  userId      String
+  amount      Int
+  type        TransactionType
+  description String
+  refId       String?
+  createdAt   DateTime        @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("credit_transactions")
+}

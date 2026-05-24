@@ -1,0 +1,22 @@
+# Claude Code memory (local only)
+.claude/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env files — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.swp
