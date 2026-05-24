@@ -1,10 +1,12 @@
 import { Check, AlertTriangle, ChevronRight, Search, Music } from "lucide-react";
+import Link from "next/link";
 import type { FC } from "react";
 
 type SongStatus = "done" | "processing" | "failed";
 
 interface Song {
   id: string;
+  jobId: string | null;
   title: string;
   artist: string;
   key: string;
@@ -145,9 +147,15 @@ const RecentSongsTable: FC<RecentSongsTableProps> = ({ songs }) => {
           <span><StatusBadge status={row.status} /></span>
           <span className="mono" style={{ color: "var(--text-3)" }}>{row.date}</span>
           <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
-            <button className="btn btn-ghost btn-sm" style={{ padding: "6px 8px" }}>
-              <ChevronRight size={14} />
-            </button>
+            {row.jobId && row.status === "done" ? (
+              <Link href={`/analisis/${row.jobId}`} className="btn btn-ghost btn-sm" style={{ padding: "6px 8px" }}>
+                <ChevronRight size={14} />
+              </Link>
+            ) : (
+              <button className="btn btn-ghost btn-sm" style={{ padding: "6px 8px" }} disabled={!row.jobId}>
+                <ChevronRight size={14} />
+              </button>
+            )}
           </div>
         </div>
       ))}

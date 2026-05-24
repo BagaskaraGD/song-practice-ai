@@ -34,6 +34,12 @@ export interface ApiSong {
   duration: number;
   createdAt: string;
   updatedAt: string;
+  jobs: Array<{
+    id: string;
+    pkg: string;
+    status: "queued" | "running" | "done" | "failed";
+    analysis: { key: string; bpm: number } | null;
+  }>;
 }
 
 export interface ApiJobStep {
@@ -253,6 +259,9 @@ export const api = {
   getSongs: () => apiFetch<ApiSong[]>("/songs"),
 
   getSong: (id: string) => apiFetch<ApiSong>(`/songs/${id}`),
+
+  getSongStreamUrl: (id: string) =>
+    apiFetch<{ url: string; expiresIn: number }>(`/songs/${id}/stream-url`),
 
   // Upload
   initUpload: (payload: {

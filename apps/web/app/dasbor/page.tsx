@@ -16,16 +16,29 @@ function formatDate(iso: string) {
   return `${d.getDate()} ${["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Agt","Sep","Okt","Nov","Des"][d.getMonth()]}`;
 }
 
+const PKG_LABEL: Record<string, string> = {
+  easy: "Akor Mudah",
+  original: "Original",
+  full: "Lengkap",
+  full_tips: "Lengkap + Tips",
+};
+
 function mapSongForTable(s: ApiSong) {
+  const job = s.jobs?.[0] ?? null;
+  const status = job?.status === "done" ? "done"
+    : job?.status === "failed" ? "failed"
+    : job ? "processing"
+    : "done";
   return {
     id: s.id,
+    jobId: job?.id ?? null,
     title: s.title,
     artist: s.artist,
-    key: "—",
-    bpm: 0,
-    pkg: "—",
+    key: job?.analysis?.key ?? "—",
+    bpm: job?.analysis?.bpm ?? 0,
+    pkg: job ? (PKG_LABEL[job.pkg] ?? job.pkg) : "—",
     date: formatDate(s.createdAt),
-    status: "done" as const,
+    status: status as "done" | "processing" | "failed",
   };
 }
 

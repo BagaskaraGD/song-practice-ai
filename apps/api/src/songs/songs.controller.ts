@@ -1,4 +1,4 @@
-import { Controller, ForbiddenException, Get, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Param, UseGuards } from '@nestjs/common';
 import { SongsService } from './songs.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { CurrentUser, type JwtUser } from '../auth/current-user.decorator';
@@ -14,9 +14,12 @@ export class SongsController {
   }
 
   @Get(':id')
-  async get(@Param('id') id: string, @CurrentUser() user: JwtUser) {
-    const song = await this.songsService.get(id);
-    if (song.userId !== user.sub) throw new ForbiddenException();
-    return song;
+  get(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.songsService.get(id, user.sub);
+  }
+
+  @Get(':id/stream-url')
+  getStreamUrl(@Param('id') id: string, @CurrentUser() user: JwtUser) {
+    return this.songsService.getStreamUrl(id, user.sub);
   }
 }
