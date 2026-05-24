@@ -11,7 +11,7 @@ import MetricCard from "@/components/features/MetricCard";
 import ProcessingTimeline from "@/components/features/ProcessingTimeline";
 import ChordSheet from "@/components/features/ChordSheet";
 import NotAngkaCard from "@/components/features/NotAngkaCard";
-import { api, ApiAnalysis, ApiJobProgress, ApiUser } from "@/lib/api";
+import { api, ApiAnalysis, ApiJobProgress, ApiUser, ApiSong } from "@/lib/api";
 import Capo from "@/components/icons/Capo";
 import {
   Clock, Coins, Edit, Plus, Download, Play, Key, Activity, Star, AudioWaveform,
@@ -204,13 +204,99 @@ function FailedView({ jobId, error }: { jobId: string; error?: string }) {
 
 // ─── Result view ──────────────────────────────────────────────────────────────
 
+function formatTime(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function AudioPlayer({ streamUrl, songTitle }: { streamUrl: string | null; songTitle: string }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+
+  const toggle = useCallback(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (playing) { el.pause(); } else { el.play(); }
+  }, [playing]);
+
+  const seek = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.currentTime = Number(e.target.value);
+  }, []);
+
+  if (!streamUrl) {
+    return (
+      <div style={{ padding: "16px 0", display: "flex", alignItems: "center", gap: 12, opacity: 0.4 }}>
+        <button className="btn btn-ghost btn-sm" disabled style={{ width: 40, height: 40, padding: 0, borderRadius: 999 }}>
+          <Play size={16} />
+        </button>
+        <span style={{ fontSize: 13, color: "var(--text-3)" }}>Audio tidak tersedia untuk lagu ini</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ padding: "4px 0" }}>
+      <audio
+        ref={audioRef}
+        src={streamUrl}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
+        onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
+        preload="metadata"
+      />
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={toggle}
+          style={{ width: 40, height: 40, padding: 0, borderRadius: 999, flex: "0 0 auto" }}
+        >
+          {playing ? (
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/>
+            </svg>
+          ) : (
+            <Play size={16} />
+          )}
+        </button>
+        <span className="mono" style={{ fontSize: 12, color: "var(--text-3)", flex: "0 0 auto", minWidth: 38 }}>
+          {formatTime(currentTime)}
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={duration || 1}
+          step={0.5}
+          value={currentTime}
+          onChange={seek}
+          style={{
+            flex: 1, height: 4, appearance: "none", background: "transparent", cursor: "pointer",
+            accentColor: "var(--violet)",
+          }}
+        />
+        <span className="mono" style={{ fontSize: 12, color: "var(--text-3)", flex: "0 0 auto", minWidth: 38 }}>
+          {formatTime(duration)}
+        </span>
+        <span style={{ fontSize: 12, color: "var(--text-3)", flex: "0 0 auto" }}>{songTitle}</span>
+      </div>
+    </div>
+  );
+}
+
 interface ResultProps {
   analysis: ApiAnalysis;
   songTitle: string;
   songArtist: string;
+  streamUrl: string | null;
 }
 
-function ResultView({ analysis: a, songTitle, songArtist }: ResultProps) {
+function ResultView({ analysis: a, songTitle, songArtist, streamUrl }: ResultProps) {
   const [activeTab, setActiveTab] = useState(0);
   const easyKey = a.easyKey ?? a.key;
   const tabs = [`Akor Mudah · ${easyKey}`, `Akor Original · ${a.key}`, "Not Angka"];
@@ -265,18 +351,14 @@ function ResultView({ analysis: a, songTitle, songArtist }: ResultProps) {
 
         {/* Waveform player */}
         <div className="card" style={{ marginTop: 24, padding: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <button className="btn btn-primary btn-sm" style={{ width: 40, height: 40, padding: 0, borderRadius: 999 }}>
-                <Play size={16} />
-              </button>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 600 }}>Pemutar dengan struktur</div>
-                <div style={{ fontSize: 12.5, color: "var(--text-3)" }}>Ketuk bagian untuk loop saat latihan</div>
-              </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>Pemutar dengan struktur</div>
+              <div style={{ fontSize: 12.5, color: "var(--text-3)" }}>Dengarkan sambil baca chord sheet</div>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 2, marginBottom: 8 }}>
+          <AudioPlayer streamUrl={streamUrl} songTitle={songTitle} />
+          <div style={{ display: "flex", gap: 2, marginTop: 16, marginBottom: 8 }}>
             {structure.map((s, i) => (
               <div key={i} style={{ flex: 1, height: 28, borderRadius: 6, background: s.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", fontWeight: 500, padding: "0 4px", overflow: "hidden" }}>
                 {s.section}
@@ -457,11 +539,14 @@ export default function AnalysisPage() {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [progress, setProgress] = useState<ApiJobProgress | null>(null);
   const [analysis, setAnalysis] = useState<ApiAnalysis | null>(null);
-  const [songTitle, setSongTitle] = useState("Lagu Anda");
-  const [songArtist, setSongArtist] = useState("—");
+  const [song, setSong] = useState<ApiSong | null>(null);
+  const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [failError, setFailError] = useState<string | undefined>(undefined);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const songTitle = song?.title ?? "Lagu Anda";
+  const songArtist = song?.artist ?? "—";
 
   const stopPolling = useCallback(() => {
     if (pollingRef.current) {
@@ -474,11 +559,13 @@ export default function AnalysisPage() {
     try {
       const a = await api.getAnalysisByJobId(jobId);
       setAnalysis(a);
-      // Try to fetch song info
       try {
-        const song = await api.getSong(a.songId);
-        setSongTitle(song.title);
-        setSongArtist(song.artist);
+        const s = await api.getSong(a.songId);
+        setSong(s);
+        // fetch presigned stream URL — non-fatal if storageKey absent (mock songs)
+        api.getSongStreamUrl(a.songId)
+          .then(({ url }) => setStreamUrl(url))
+          .catch(() => null);
       } catch {
         // song fetch failure is non-fatal
       }
@@ -545,7 +632,7 @@ export default function AnalysisPage() {
         )}
 
         {isFailed && <FailedView jobId={jobId} error={failError} />}
-        {isDone && <ResultView analysis={analysis} songTitle={songTitle} songArtist={songArtist} />}
+        {isDone && <ResultView analysis={analysis} songTitle={songTitle} songArtist={songArtist} streamUrl={streamUrl} />}
         {isProcessing && !error && (
           <ProcessingView
             progress={progress?.progress ?? 0}
